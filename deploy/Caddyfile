@@ -1,0 +1,10 @@
+{$PUBLIC_DOMAIN} {
+
+	encode gzip
+
+	# Clerk + Next.js need forwarded host/proto behind TLS termination
+	reverse_proxy app:3000 {
+		header_up X-Forwarded-Host {host}
+		header_up X-Forwarded-Proto {scheme}
+	}
+}

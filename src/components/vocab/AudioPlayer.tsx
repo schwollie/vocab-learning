@@ -6,10 +6,16 @@ import { Volume2 } from "lucide-react";
 interface AudioPlayerProps {
   text: string;
   language?: string;
+  preferredVoice?: string;
   autoPlay?: boolean;
 }
 
-export default function AudioPlayer({ text, language = "en-US", autoPlay = false }: AudioPlayerProps) {
+export default function AudioPlayer({
+  text,
+  language = "en-US",
+  preferredVoice,
+  autoPlay = false,
+}: AudioPlayerProps) {
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
@@ -38,10 +44,16 @@ export default function AudioPlayer({ text, language = "en-US", autoPlay = false
     utterance.lang = language;
     utterance.rate = 0.9; // Slightly slower for language learning
 
-    // Prefer high quality voices if available based on target language
     const preferredVoices = voices.filter(v => v.lang === language || v.lang.startsWith(language.split('-')[0]));
-    
-    // Look for a Google or enhanced voice first.
+    const explicitVoice = preferredVoice
+      ? preferredVoices.find((voice) => voice.name === preferredVoice)
+      : undefined;
+    if (explicitVoice) {
+      utterance.voice = explicitVoice;
+      window.speechSynthesis.speak(utterance);
+      return;
+    }
+
     const enhancedVoice = preferredVoices.find(v => v.name.includes("Premium") || v.name.includes("Google") || v.name.includes("Enhanced"));
     if (enhancedVoice) utterance.voice = enhancedVoice;
     else if (preferredVoices.length > 0) utterance.voice = preferredVoices[0];
@@ -50,10 +62,10 @@ export default function AudioPlayer({ text, language = "en-US", autoPlay = false
   };
 
   useEffect(() => {
-    if (autoPlay && text) {
-      // Small timeout fixes autoplay block policy issues on some browsers after interactions
-      setTimeout(() => playAudio(), 150);
-    }
+    if (!autoPlay || !text || !window.speechSynthesis) return;
+    const timer = setTimeout(() => playAudio(), 150);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- play on text/autoPlay change only
   }, [text, autoPlay]);
 
   return (

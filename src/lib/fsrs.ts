@@ -1,9 +1,8 @@
-import { createId } from "@paralleldrive/cuid2";
-import { ReviewLog, VocabItem, Prisma } from "@prisma/client";
-import { createEmptyCard, fsrs, Rating, Card } from "fsrs.js";
+import { VocabItem, Prisma } from "@prisma/client";
+import { FSRS, Rating, Card } from "fsrs.js";
 
 // Initialize FSRS
-export const fsrsScheduler = fsrs();
+export const fsrsScheduler = new FSRS();
 
 // Mapper from our Prisma VocabItem to FSRS Card
 export function vocabItemToFsrsCard(item: VocabItem): Card {
@@ -14,9 +13,9 @@ export function vocabItemToFsrsCard(item: VocabItem): Card {
     elapsed_days: item.elapsedDays,
     scheduled_days: item.scheduledDays,
     reps: item.reps,
-    lapses: 0, // Simplified for now since we don't track lapses distinctly yet
+    lapses: 0,
     state: item.state,
-    last_review: item.lastReview ?? undefined,
+    last_review: item.lastReview ? item.lastReview : new Date() // Fallback to avoid breaking types
   };
 }
 
@@ -49,13 +48,13 @@ export function processReview(
     newLog: {
       rating,
       state: reviewLog.state,
-      due: reviewLog.due,
-      stability: reviewLog.stability,
-      difficulty: reviewLog.difficulty,
-      elapsedDays: reviewLog.elapsed_days,
-      lastElapsedDays: reviewLog.last_elapsed_days,
-      scheduledDays: reviewLog.scheduled_days,
-      review: reviewLog.review,
+      due: newCard.due,
+      stability: newCard.stability, // use newCard's stability since reviewLog in some versions doesnt duplicate it
+      difficulty: newCard.difficulty,
+      elapsedDays: newCard.elapsed_days,
+      lastElapsedDays: item.elapsedDays || 0, // Fallback to our db item's previous elapsed tracking
+      scheduledDays: newCard.scheduled_days,
+      review: new Date(),
       item: { connect: { id: item.id } }
     }
   };

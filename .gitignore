@@ -41,4 +41,8 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# local database backups (see backup/README.md)
+backup/**
+!backup/README.md
+
 /src/generated/prisma

@@ -16,6 +16,7 @@ export interface UserSettingsDTO {
   defaultStudyMode: StudyMode;
   defaultDirection: StudyDirection;
   defaultAutoplayMode: AutoplayMode;
+  showReviewIntervalPopup: boolean;
 }
 
 const DEFAULTS: UserSettingsDTO = {
@@ -26,6 +27,7 @@ const DEFAULTS: UserSettingsDTO = {
   defaultStudyMode: "due",
   defaultDirection: "term_to_definition",
   defaultAutoplayMode: "both",
+  showReviewIntervalPopup: true,
 };
 
 export async function getUserSettings(): Promise<UserSettingsDTO> {
@@ -43,6 +45,7 @@ export async function getUserSettings(): Promise<UserSettingsDTO> {
       defaultStudyMode: string | null;
       defaultDirection: string | null;
       defaultAutoplayMode: string | null;
+      showReviewIntervalPopup: boolean | null;
     }>
   >(Prisma.sql`
     SELECT
@@ -53,7 +56,8 @@ export async function getUserSettings(): Promise<UserSettingsDTO> {
       "defaultSideBLanguage",
       "defaultStudyMode",
       "defaultDirection",
-      "defaultAutoplayMode"
+      "defaultAutoplayMode",
+      "showReviewIntervalPopup"
     FROM "UserSettings"
     WHERE "userId" = ${userId}
     LIMIT 1
@@ -84,6 +88,7 @@ export async function getUserSettings(): Promise<UserSettingsDTO> {
         ? row.defaultDirection
         : "term_to_definition",
     defaultAutoplayMode: normalizeAutoplayMode(row.defaultAutoplayMode),
+    showReviewIntervalPopup: row.showReviewIntervalPopup ?? true,
   };
 }
 
@@ -108,6 +113,7 @@ export async function updateUserSettings(input: UserSettingsDTO) {
       "defaultStudyMode" = ${input.defaultStudyMode},
       "defaultDirection" = ${input.defaultDirection},
       "defaultAutoplayMode" = ${input.defaultAutoplayMode},
+      "showReviewIntervalPopup" = ${input.showReviewIntervalPopup},
       "updatedAt" = NOW()
     WHERE "userId" = ${userId}
   `);

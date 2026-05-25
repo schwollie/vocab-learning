@@ -39,6 +39,7 @@ export default async function StudyPage({ params }: { params: Promise<{ setId: s
           preferredVoice: settings.preferredVoice,
           defaultStudyMode: settings.defaultStudyMode,
           defaultDirection: settings.defaultDirection,
+          showReviewIntervalPopup: settings.showReviewIntervalPopup,
         }}
       />
       <div className="max-w-4xl mx-auto px-4 pb-8">

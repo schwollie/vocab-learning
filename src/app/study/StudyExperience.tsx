@@ -1,13 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import { Volume2, VolumeX } from "lucide-react";
 import Flashcard from "@/components/vocab/Flashcard";
 import ReviewSchedulePanel from "@/components/study/ReviewSchedulePanel";
 import VocabItemEditSheet from "@/components/vocab/VocabItemEditSheet";
+import ReviewIntervalPopup from "@/components/vocab/ReviewIntervalPopup";
+import { formatAddedInterval, intervalMsUntil } from "@/lib/review-interval";
 import {
-  getLatestOpenStudySession,
+  resumeStudySession,
   startStudySession,
   submitSessionReview,
   updateSessionQueueState,
@@ -32,6 +34,7 @@ interface StudyDefaults {
   preferredVoice: string;
   defaultStudyMode: StudyMode;
   defaultDirection: StudyDirection;
+  showReviewIntervalPopup: boolean;
 }
 
 export default function StudyExperience({
@@ -67,6 +70,11 @@ export default function StudyExperience({
   const [localIndex, setLocalIndex] = useState(0);
   const [scheduleRefreshKey, setScheduleRefreshKey] = useState(0);
   const [editOpen, setEditOpen] = useState(false);
+  const [intervalPopup, setIntervalPopup] = useState<{
+    id: number;
+    text: string;
+  } | null>(null);
+  const dismissIntervalPopup = useCallback(() => setIntervalPopup(null), []);
   const sideALabel = customSideALabel.trim() || "Side A";
   const sideBLabel = customSideBLabel.trim() || "Side B";
 
@@ -116,10 +124,18 @@ export default function StudyExperience({
     setLocalIndex((prev) => (poolSize > 0 ? (prev + 1) % poolSize : 0));
   };
 
+  const [resumeSnapshot, setResumeSnapshot] = useState<PersistedStudySession | null>(
+    latestSession
+  );
+
+  useEffect(() => {
+    setResumeSnapshot(latestSession);
+  }, [latestSession]);
+
   const refreshResume = () => {
     startTransition(async () => {
-      const fresh = await getLatestOpenStudySession(scopeType, scopeId);
-      if (fresh) setSession(fresh);
+      const fresh = await resumeStudySession(scopeType, scopeId);
+      if (fresh) setResumeSnapshot(fresh);
     });
   };
 
@@ -140,10 +156,14 @@ export default function StudyExperience({
   };
 
   const continueSession = () => {
-    if (!latestSession) return;
-    setSession(latestSession);
-    setLocalIndex(0);
-    setAutoplayEnabled(latestSession.queue[0]?.autoplayMode !== "off");
+    startTransition(async () => {
+      const fresh = await resumeStudySession(scopeType, scopeId);
+      if (!fresh) return;
+      setSession(fresh);
+      setResumeSnapshot(fresh);
+      setLocalIndex(0);
+      setAutoplayEnabled(fresh.queue[0]?.autoplayMode !== "off");
+    });
   };
 
   const moveActivePool = (newQueue: typeof queue, complete = false) => {
@@ -173,6 +193,13 @@ export default function StudyExperience({
           fsrsState = result.state;
           nextReview = result.nextReview;
           setScheduleRefreshKey((k) => k + 1);
+          if (defaults.showReviewIntervalPopup) {
+            const addedMs = intervalMsUntil(result.nextReview);
+            setIntervalPopup({
+              id: Date.now(),
+              text: formatAddedInterval(addedMs),
+            });
+          }
         }
       }
 
@@ -270,12 +297,12 @@ export default function StudyExperience({
           </Link>
         </div>
 
-        {latestSession && (
+        {resumeSnapshot && (
           <div className="p-4 border border-blue-200 dark:border-blue-900 rounded-xl bg-blue-50/60 dark:bg-blue-950/20 space-y-2">
             <p className="font-medium">Continue where you left off?</p>
             <p className="text-sm text-gray-600 dark:text-gray-300">
-              {latestSession.queue.filter((item) => isSessionItemComplete(item)).length} /{" "}
-              {latestSession.queue.length} cards completed.
+              {resumeSnapshot.queue.filter((item) => isSessionItemComplete(item)).length} /{" "}
+              {resumeSnapshot.queue.length} cards completed.
             </p>
             <div className="flex gap-2">
               <button
@@ -428,7 +455,6 @@ export default function StudyExperience({
       </div>
 
       <Flashcard
-        key={`${active.id}-${currentIndex}-${current.correctCount}-${current.itemId}`}
         prompt={promptAndAnswer.prompt}
         answer={promptAndAnswer.answer}
         promptLanguage={promptAndAnswer.promptLanguage}
@@ -445,6 +471,15 @@ export default function StudyExperience({
         onPrevious={onPrevious}
         onEdit={() => setEditOpen(true)}
         disableActions={isSubmitting}
+        cardOverlay={
+          intervalPopup && defaults.showReviewIntervalPopup ? (
+            <ReviewIntervalPopup
+              key={intervalPopup.id}
+              message={intervalPopup.text}
+              onDismiss={dismissIntervalPopup}
+            />
+          ) : null
+        }
       />
 
       {current && (

@@ -36,6 +36,7 @@ model UserSettings {
   defaultStudyMode String  @default("due")
   defaultDirection String  @default("term_to_definition")
   defaultAutoplayMode String @default("both")
+  showReviewIntervalPopup Boolean @default(true)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 }

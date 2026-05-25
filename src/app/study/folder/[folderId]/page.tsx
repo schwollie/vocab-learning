@@ -47,6 +47,7 @@ export default async function FolderStudyPage({
         preferredVoice: settings.preferredVoice,
         defaultStudyMode: settings.defaultStudyMode,
         defaultDirection: settings.defaultDirection,
+        showReviewIntervalPopup: settings.showReviewIntervalPopup,
       }}
     />
   );

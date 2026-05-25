@@ -46,6 +46,21 @@ export default function SettingsForm({
         />
       </label>
 
+      <label className="flex items-center justify-between gap-4">
+        <div>
+          <span className="font-medium block">Show interval popup while studying</span>
+          <span className="text-sm text-gray-500">
+            Brief on-card message after a rating, e.g. &quot;+3 days&quot;
+          </span>
+        </div>
+        <input
+          type="checkbox"
+          checked={form.showReviewIntervalPopup}
+          onChange={(e) => setField("showReviewIntervalPopup", e.target.checked)}
+          className="h-5 w-5 accent-blue-600 shrink-0"
+        />
+      </label>
+
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <span className="text-sm text-gray-500 block mb-1">

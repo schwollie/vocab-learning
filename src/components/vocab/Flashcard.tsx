@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { Pencil, RotateCcw } from "lucide-react";
 import AudioPlayer from "./AudioPlayer";
 import { getFsrsStateDisplay } from "@/lib/fsrs-state";
@@ -22,6 +22,7 @@ interface FlashcardProps {
   onPrevious: () => void;
   onEdit?: () => void;
   disableActions?: boolean;
+  cardOverlay?: ReactNode;
 }
 
 const ratingStyles = {
@@ -50,9 +51,14 @@ export default function Flashcard({
   onPrevious,
   onEdit,
   disableActions = false,
+  cardOverlay,
 }: FlashcardProps) {
   const [flipped, setFlipped] = useState(false);
   const fsrsBadge = getFsrsStateDisplay(fsrsState);
+
+  useEffect(() => {
+    setFlipped(false);
+  }, [prompt, answer]);
 
   const handleRate = async (rating: number) => {
     if (disableActions) return;
@@ -101,6 +107,7 @@ export default function Flashcard({
         className="relative min-h-[320px] cursor-pointer [perspective:1200px]"
         onClick={() => !flipped && setFlipped(true)}
       >
+        {cardOverlay}
         <div
           className={`relative w-full min-h-[320px] transition-transform duration-500 [transform-style:preserve-3d] ${
             flipped ? "[transform:rotateY(180deg)]" : ""

@@ -33,18 +33,21 @@ cd ~/vocab-learning && npm ci
    - Clerk **production** keys (`pk_live_` / `sk_live_`)
    - Clerk sign-in URLs (`NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in`, etc.)
    - `PUBLIC_DOMAIN` (e.g. `159-195-38-197.sslip.io` for sslip.io)
-2. In the **Clerk Dashboard**, allow your HTTPS origin, e.g. `https://159-195-38-197.sslip.io`
-3. Open firewall ports **80** and **443** on the server
-4. One-time DB password sync after changing `POSTGRES_PASSWORD` (keeps all data):
+2. In the **Clerk Dashboard**, allow your HTTPS origin: **`https://vocab.159-195-38-197.sslip.io`** (subdomain, not the apex)
+3. Start the shared reverse proxy once (sibling repo `~/reverse-proxy`); see its README
+4. Open firewall ports **80** and **443** on the server
+5. One-time DB password sync after changing `POSTGRES_PASSWORD` (keeps all data):
 
 ```bash
 docker exec vocab-db psql -U postgres -d vocab_learning \
   -c "ALTER USER postgres WITH PASSWORD 'your_new_password';"
 ```
 
-5. Deploy with HTTPS (recommended):
+6. Deploy reverse proxy, then vocab:
 
 ```bash
+cd ~/reverse-proxy && cp .env.example .env && ./deploy/restart.sh
+cd ~/vocab-learning
 chmod +x deploy/restart.sh scripts/check.sh scripts/docker-npm.sh
 ./deploy/restart.sh
 ```
@@ -55,16 +58,16 @@ Optional pre-deploy checks (host `npm` or Docker fallback):
 CHECK=1 ./deploy/restart.sh
 ```
 
-Or manually:
+Or manually (requires `proxy` network from reverse-proxy):
 
 ```bash
 docker compose --env-file .env --project-directory . \
-  -f docker/docker-compose.yml -f docker/docker-compose.https.yml up -d --build
+  -f docker/docker-compose.yml up -d --build
 ```
 
 (`./deploy/restart.sh` passes `--env-file .env` automatically; required because compose files are under `docker/`.)
 
-App is served at **`https://YOUR_PUBLIC_DOMAIN`**. The app container listens on port 3000 **inside Docker only**; Caddy terminates TLS on 443.
+App is served at **`https://vocab.YOUR_PUBLIC_DOMAIN`**. The apex domain redirects to the subdomain. TLS is terminated by Caddy in `~/reverse-proxy`; the app container listens on port 3000 **inside Docker only**.
 
 **Security:** Postgres is bound to `127.0.0.1:5432` only (not exposed to the internet). Do not publish port 5432 publicly.
 
@@ -107,7 +110,7 @@ After `npm ci`, you should see **`found 0 vulnerabilities`**. Do **not** run `np
 
 ```
 config/             Vitest config (keeps repo root minimal)
-deploy/             Caddy + restart script
+deploy/             restart script (app + db; TLS in ~/reverse-proxy)
 docker/             Dockerfile and compose files
 docs/               ARCHITECTURE.md, AGENTS.md
 prisma/             Schema and migrations

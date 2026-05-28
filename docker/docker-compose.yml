@@ -1,4 +1,4 @@
-# Base stack. Production: add docker-compose.https.yml (Caddy on 443).
+# Base stack. TLS is handled by ~/reverse-proxy (Caddy on shared "proxy" network).
 # Postgres is not exposed publicly; use 127.0.0.1:5432 for local admin only.
 
 services:
@@ -51,6 +51,7 @@ services:
         condition: service_healthy
     networks:
       - vocab-network
+      - proxy
 
 volumes:
   pgdata:
@@ -58,3 +59,6 @@ volumes:
 networks:
   vocab-network:
     driver: bridge
+  proxy:
+    external: true
+    name: proxy

@@ -11,9 +11,7 @@ echo "Node on host: $(command -v node >/dev/null && node -v || echo 'not install
 echo "npm on host: $(command -v npm >/dev/null && npm -v || echo 'not installed')"
 echo "Docker: $(docker -v)"
 
-COMPOSE_FILES=(-f docker/docker-compose.yml -f docker/docker-compose.https.yml)
-# Compose files live under docker/, so the default project dir would be docker/ and
-# root .env would not load. Explicit --env-file and --project-directory keep .env at repo root.
+COMPOSE_FILES=(-f docker/docker-compose.yml)
 ROOT="$(pwd)"
 ENV_FILE="${ROOT}/.env"
 if [[ ! -f "$ENV_FILE" ]]; then
@@ -21,9 +19,22 @@ if [[ ! -f "$ENV_FILE" ]]; then
   exit 1
 fi
 
+# shellcheck disable=SC1090
+set -a
+source "$ENV_FILE"
+set +a
+
+if ! docker network inspect proxy >/dev/null 2>&1; then
+  echo "Docker network 'proxy' not found. Start ~/reverse-proxy first:" >&2
+  echo "  cd ~/reverse-proxy && ./deploy/restart.sh" >&2
+  exit 1
+fi
+
 echo "Using env file: ${ENV_FILE}"
-echo "Building and restarting production stack (HTTPS)..."
+echo "Building and restarting vocab stack (app + db)..."
 docker compose --env-file "$ENV_FILE" --project-directory "$ROOT" "${COMPOSE_FILES[@]}" build app
 docker compose --env-file "$ENV_FILE" --project-directory "$ROOT" "${COMPOSE_FILES[@]}" up -d --force-recreate --remove-orphans
 
-echo "Done. Use https://${PUBLIC_DOMAIN:-your-domain} (hard-refresh browser after deploy)."
+VOCAB_HOST="vocab.${PUBLIC_DOMAIN:-your-domain}"
+echo "Done. App URL: https://${VOCAB_HOST} (hard-refresh browser after deploy)."
+echo "Ensure reverse-proxy is running: cd ~/reverse-proxy && ./deploy/restart.sh"

@@ -7,8 +7,8 @@ import Flashcard from "@/components/vocab/Flashcard";
 import ReviewSchedulePanel from "@/components/study/ReviewSchedulePanel";
 import VocabItemEditSheet from "@/components/vocab/VocabItemEditSheet";
 import ReviewIntervalPopup from "@/components/vocab/ReviewIntervalPopup";
-import { formatAddedInterval, intervalMsUntil } from "@/lib/review-interval";
-import { previewRatingIntervals } from "@/lib/rating-preview";
+import { formatAddedInterval, intervalMsUntil } from "@/lib/fsrs";
+import { previewRatingIntervals } from "@/lib/fsrs";
 import {
   resumeStudySession,
   startStudySession,
@@ -21,14 +21,14 @@ import {
   StudyMode,
   StudyScopeType,
 } from "@/lib/study";
-import { shouldAutoplaySide } from "@/lib/autoplay";
+import { shouldAutoplaySide } from "@/lib/study";
 import {
   buildActiveWindowIndices,
   isDueNow,
   isSessionItemComplete,
   nextCorrectCount,
   sessionPassTarget,
-} from "@/lib/study-chunk";
+} from "@/lib/study";
 
 interface StudyDefaults {
   autoplayAudio: boolean;
@@ -105,6 +105,8 @@ export default function StudyExperience({
         answer: current.sideAText,
         promptLanguage: current.sideBLanguage,
         answerLanguage: current.sideALanguage,
+        promptTranslationLanguage: current.sideALanguage,
+        answerTranslationLanguage: current.sideBLanguage,
       };
     }
     return {
@@ -112,6 +114,8 @@ export default function StudyExperience({
       answer: current.sideBText,
       promptLanguage: current.sideALanguage,
       answerLanguage: current.sideBLanguage,
+      promptTranslationLanguage: current.sideBLanguage,
+      answerTranslationLanguage: current.sideALanguage,
     };
   }, [current]);
 
@@ -485,6 +489,8 @@ export default function StudyExperience({
         answer={promptAndAnswer.answer}
         promptLanguage={promptAndAnswer.promptLanguage}
         answerLanguage={promptAndAnswer.answerLanguage}
+        promptTranslationLanguage={promptAndAnswer.promptTranslationLanguage}
+        answerTranslationLanguage={promptAndAnswer.answerTranslationLanguage}
         preferredVoice={defaults.preferredVoice}
         autoPlayPrompt={autoplaySides.prompt}
         autoPlayAnswer={autoplaySides.answer}

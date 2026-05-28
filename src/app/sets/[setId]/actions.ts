@@ -1,15 +1,15 @@
 "use server";
 
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db";
 import { auth } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { isValidSetAutoplayOverride } from "@/lib/autoplay";
+import { isValidSetAutoplayOverride } from "@/lib/study";
 import {
   addVocabItems,
   deleteVocabItem,
   updateVocabItem,
-} from "@/lib/vocab-items";
+} from "@/lib/vocab";
 
 async function requireOwnedSet(setId: string, userId: string) {
   const set = await prisma.vocabSet.findFirst({ where: { id: setId, userId } });

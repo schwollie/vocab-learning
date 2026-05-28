@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { getReviewScheduleSnapshot } from "@/app/study/schedule-actions";
-import { ReviewScheduleSnapshot } from "@/lib/review-schedule";
+import { ReviewScheduleSnapshot } from "@/lib/study";
 import { StudyScopeType } from "@/lib/study";
 import ReviewScheduleChart from "@/components/study/ReviewScheduleChart";
 

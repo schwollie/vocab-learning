@@ -3,8 +3,10 @@
 import { ReactNode, useEffect, useState } from "react";
 import { Pencil, RotateCcw } from "lucide-react";
 import AudioPlayer from "./AudioPlayer";
-import { getFsrsStateDisplay } from "@/lib/fsrs-state";
-import { RATING_HINTS } from "@/lib/rating-preview";
+import { getFsrsStateDisplay } from "@/lib/fsrs";
+import { RATING_HINTS } from "@/lib/fsrs";
+import LexiconPanel from "@/components/lexicon/LexiconPanel";
+import LexiconTrigger from "@/components/lexicon/LexiconTrigger";
 
 interface FlashcardProps {
   prompt: string;
@@ -18,6 +20,8 @@ interface FlashcardProps {
   cardIndex: number;
   totalCards: number;
   isLearning: boolean;
+  promptTranslationLanguage?: string;
+  answerTranslationLanguage?: string;
   /** Changes when the same item returns for another session pass — resets flip state. */
   cardAttemptKey?: string;
   ratingPreviews?: Record<number, string> | null;
@@ -50,6 +54,8 @@ export default function Flashcard({
   cardIndex,
   totalCards,
   isLearning,
+  promptTranslationLanguage,
+  answerTranslationLanguage,
   cardAttemptKey,
   ratingPreviews,
   onRate,
@@ -60,6 +66,8 @@ export default function Flashcard({
   cardOverlay,
 }: FlashcardProps) {
   const [flipped, setFlipped] = useState(false);
+  const [lexiconOpen, setLexiconOpen] = useState(false);
+  const [lexiconFace, setLexiconFace] = useState<"prompt" | "answer">("prompt");
   const fsrsBadge = getFsrsStateDisplay(fsrsState);
 
   useEffect(() => {
@@ -69,6 +77,10 @@ export default function Flashcard({
   useEffect(() => {
     if (disableActions) setFlipped(false);
   }, [disableActions]);
+
+  useEffect(() => {
+    setLexiconOpen(false);
+  }, [prompt, answer, cardAttemptKey]);
 
   const handleRate = async (rating: number) => {
     if (disableActions) return;
@@ -111,6 +123,11 @@ export default function Flashcard({
     </>
   );
 
+  const openLexicon = (face: "prompt" | "answer") => {
+    setLexiconFace(face);
+    setLexiconOpen(true);
+  };
+
   return (
     <div className="w-full max-w-2xl mx-auto flex flex-col pt-8">
       <p className="text-center text-sm text-gray-500 mb-6">
@@ -140,8 +157,14 @@ export default function Flashcard({
                 autoPlay={autoPlayPrompt && !flipped}
               />
             </div>
-            <div className="flex-1 flex items-center justify-center w-full px-4 pt-6 pb-12">
-              <h2 className="text-3xl sm:text-4xl font-bold text-center">{prompt}</h2>
+            <div className="relative flex-1 flex items-center justify-center w-full px-4 pt-6 pb-12">
+              <div className="flex items-center justify-center gap-2 max-w-full">
+                <h2 className="text-3xl sm:text-4xl font-bold text-center">{prompt}</h2>
+                <LexiconTrigger
+                  onClick={() => openLexicon("prompt")}
+                  label={`Show dictionary and usage for ${prompt}`}
+                />
+              </div>
             </div>
             <p className="absolute bottom-14 left-0 right-0 text-center text-sm text-gray-400 animate-pulse pointer-events-none">
               Tap to reveal
@@ -162,10 +185,16 @@ export default function Flashcard({
                 autoPlay={autoPlayAnswer && flipped}
               />
             </div>
-            <div className="flex-1 flex items-center justify-center w-full px-4 pt-6 pb-12">
-              <p className="text-2xl text-gray-600 dark:text-gray-300 text-center">
-                {answer}
-              </p>
+            <div className="relative flex-1 flex items-center justify-center w-full px-4 pt-6 pb-12">
+              <div className="flex items-center justify-center gap-2 max-w-full">
+                <p className="text-2xl text-gray-600 dark:text-gray-300 text-center">
+                  {answer}
+                </p>
+                <LexiconTrigger
+                  onClick={() => openLexicon("answer")}
+                  label={`Show dictionary and usage for ${answer}`}
+                />
+              </div>
             </div>
             {cardControls}
           </div>
@@ -237,6 +266,20 @@ export default function Flashcard({
           </p>
         )}
       </div>
+
+      <LexiconPanel
+        open={lexiconOpen}
+        onClose={() => setLexiconOpen(false)}
+        word={lexiconFace === "prompt" ? prompt : answer}
+        sourceLanguage={
+          lexiconFace === "prompt"
+            ? (promptTranslationLanguage ?? promptLanguage)
+            : (answerTranslationLanguage ?? answerLanguage)
+        }
+        targetLanguage={
+          lexiconFace === "prompt" ? promptTranslationLanguage : answerTranslationLanguage
+        }
+      />
     </div>
   );
 }

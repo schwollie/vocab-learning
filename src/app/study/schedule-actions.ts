@@ -2,13 +2,13 @@
 
 import { auth } from "@clerk/nextjs/server";
 import { Prisma } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db";
 import { ensureUser } from "@/lib/auth";
 import { getFolderDescendantIds } from "@/lib/folders";
 import {
   buildReviewScheduleSnapshot,
   ReviewScheduleSnapshot,
-} from "@/lib/review-schedule";
+} from "@/lib/study";
 import { StudyScopeType } from "@/lib/study";
 
 async function requireUser() {

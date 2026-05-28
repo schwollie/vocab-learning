@@ -2,7 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { sanitizeReturnTo } from "@/lib/return-to";
+import { sanitizeReturnTo } from "@/lib/auth";
 
 export default async function Home({
   searchParams,

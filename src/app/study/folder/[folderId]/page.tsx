@@ -1,7 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { Prisma } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db";
 import { ensureUser } from "@/lib/auth";
 import StudyExperience from "@/app/study/StudyExperience";
 import { getLatestOpenStudySession } from "@/app/study/session-actions";

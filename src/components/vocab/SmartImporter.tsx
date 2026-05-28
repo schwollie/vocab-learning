@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { Plus } from "lucide-react";
-import { parseVocabPaste } from "@/lib/vocab-paste";
-import type { PastedVocabItem } from "@/lib/vocab-paste";
+import { parseVocabPaste } from "@/lib/vocab";
+import type { PastedVocabItem } from "@/lib/vocab";
 
 export default function SmartImporter({
   onAddItems,

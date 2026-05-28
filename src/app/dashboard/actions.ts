@@ -4,7 +4,7 @@ import { Prisma } from "@prisma/client";
 import { auth } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
 import { createId } from "@paralleldrive/cuid2";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db";
 import { ensureUser } from "@/lib/auth";
 import { getFolderDescendantIds } from "@/lib/folders";
 

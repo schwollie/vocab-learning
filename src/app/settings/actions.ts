@@ -3,10 +3,10 @@
 import { Prisma } from "@prisma/client";
 import { auth } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db";
 import { ensureUser } from "@/lib/auth";
 import { AutoplayMode, StudyDirection, StudyMode } from "@/lib/study";
-import { normalizeAutoplayMode } from "@/lib/autoplay";
+import { normalizeAutoplayMode } from "@/lib/study";
 
 export interface UserSettingsDTO {
   autoplayAudio: boolean;

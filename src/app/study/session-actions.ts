@@ -1,32 +1,29 @@
 "use server";
 
-import { Prisma } from "@prisma/client";
 import { createId } from "@paralleldrive/cuid2";
 import { auth } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
-import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
+import { Rating } from "fsrs.js";
 import { ensureUser } from "@/lib/auth";
-import { getFolderDescendantIds } from "@/lib/folders";
+import { prisma } from "@/lib/db";
+import { processReview } from "@/lib/fsrs";
+import { loadCardsForSession } from "@/lib/study/session/build-queue";
 import {
-  normalizeAutoplayMode,
-  resolveAutoplayMode,
-} from "@/lib/autoplay";
-import {
-  directionToPromptSide,
+  findLatestOpenSessionRow,
+  findSessionRowById,
+  insertStudySession,
+  parseSessionRow,
+  updateSessionQueueInDb,
+} from "@/lib/study/session/repository";
+import { verifyScopeOwnership } from "@/lib/study/session/scope";
+import { syncSessionQueueWithDb } from "@/lib/study/session/sync-queue";
+import type { StartSessionInput } from "@/lib/study/session/types";
+import type {
   PersistedStudySession,
-  shuffle,
-  StudyDirection,
-  StudyMode,
   StudyQueueItem,
   StudyScopeType,
 } from "@/lib/study";
-import { State } from "fsrs.js";
-import { processReview } from "@/lib/fsrs";
-import { Rating } from "fsrs.js";
-import {
-  refreshSessionQueue,
-  VocabSnapshot,
-} from "@/lib/study-session-refresh";
 
 const VALID_RATINGS = new Set<number>([
   Rating.Again,
@@ -35,287 +32,11 @@ const VALID_RATINGS = new Set<number>([
   Rating.Easy,
 ]);
 
-interface StartSessionInput {
-  scopeType: StudyScopeType;
-  scopeId: string;
-  includeSubfolders: boolean;
-  mode: StudyMode;
-  direction: StudyDirection;
-  isLearning: boolean;
-}
-
 async function requireUser() {
   const { userId } = await auth();
   if (!userId) throw new Error("Unauthorized");
   await ensureUser(userId);
   return userId;
-}
-
-function parseSessionRow(row: {
-  id: string;
-  scopeType: string;
-  scopeId: string;
-  includeSubfolders: boolean;
-  mode: string;
-  direction: string;
-  isLearning: boolean;
-  queueJson: Prisma.JsonValue;
-  cursor: number;
-  completedAt: Date | null;
-  createdAt: Date;
-  updatedAt: Date;
-}): PersistedStudySession {
-  const queue = Array.isArray(row.queueJson)
-    ? (row.queueJson as unknown as StudyQueueItem[])
-    : [];
-
-  return {
-    id: row.id,
-    scopeType: row.scopeType as StudyScopeType,
-    scopeId: row.scopeId,
-    includeSubfolders: row.includeSubfolders,
-    mode: row.mode as StudyMode,
-    direction: row.direction as StudyDirection,
-    isLearning: row.isLearning,
-    queue,
-    cursor: row.cursor,
-    completedAt: row.completedAt ? row.completedAt.toISOString() : null,
-    createdAt: row.createdAt.toISOString(),
-    updatedAt: row.updatedAt.toISOString(),
-  };
-}
-
-async function verifyScopeOwnership(
-  userId: string,
-  scopeType: StudyScopeType,
-  scopeId: string
-) {
-  if (scopeType === "SET") {
-    const set = await prisma.vocabSet.findFirst({ where: { id: scopeId, userId } });
-    if (!set) throw new Error("Set not found");
-    return;
-  }
-
-  const rows = await prisma.$queryRaw<{ id: string }[]>(Prisma.sql`
-    SELECT "id" FROM "Folder"
-    WHERE "id" = ${scopeId} AND "userId" = ${userId}
-    LIMIT 1
-  `);
-  if (!rows.length) throw new Error("Folder not found");
-}
-
-async function loadCardsForSession(
-  userId: string,
-  input: StartSessionInput
-): Promise<StudyQueueItem[]> {
-  const settings = await prisma.userSettings.findUnique({ where: { userId } });
-  const defaultAutoplayMode = normalizeAutoplayMode(settings?.defaultAutoplayMode);
-
-  let items = await fetchVocabSnapshots(userId, input);
-
-  const newItems = items.filter((i) => i.state === State.New || i.state === State.Learning);
-  const reviewItems = items.filter((i) => i.state === State.Review || i.state === State.Relearning);
-  reviewItems.sort(
-    (a, b) => (a.nextReview?.getTime() ?? 0) - (b.nextReview?.getTime() ?? 0)
-  );
-
-  if (input.mode === "random") {
-    items = [...shuffle(newItems), ...shuffle(reviewItems)];
-  } else {
-    items = [...newItems, ...reviewItems];
-  }
-
-  return items.map((item, index) => {
-    const learningSide = item.set.learningSide === "B" ? "B" : "A";
-    const promptSide = directionToPromptSide(input.direction, index);
-    const resolvedMode = resolveAutoplayMode(
-      item.set.autoplayModeOverride,
-      defaultAutoplayMode
-    );
-
-    return {
-      itemId: item.id,
-      setId: item.setId,
-      sideAText: item.term,
-      sideBText: item.definition,
-      sideALabel: item.set.sideALabel,
-      sideBLabel: item.set.sideBLabel,
-      sideALanguage: item.set.sideALanguage,
-      sideBLanguage: item.set.sideBLanguage,
-      learningSide,
-      autoplayMode: resolvedMode,
-      promptSide: promptSide === "term" ? "A" : "B",
-      fsrsState: item.state,
-      startedAsNew: item.state === State.New,
-      nextReview: item.nextReview?.toISOString() ?? null,
-      stability: item.stability,
-      difficulty: item.difficulty,
-      elapsedDays: item.elapsedDays,
-      scheduledDays: item.scheduledDays,
-      reps: item.reps,
-      lastReview: item.lastReview?.toISOString() ?? null,
-      correctCount: 0,
-      firstAttemptCompleted: false,
-    };
-  });
-}
-
-const vocabSnapshotSelect = {
-  id: true,
-  setId: true,
-  term: true,
-  definition: true,
-  state: true,
-  stability: true,
-  difficulty: true,
-  elapsedDays: true,
-  scheduledDays: true,
-  reps: true,
-  lastReview: true,
-  nextReview: true,
-  createdAt: true,
-  set: {
-    select: {
-      sideALabel: true,
-      sideBLabel: true,
-      sideALanguage: true,
-      sideBLanguage: true,
-      learningSide: true,
-      autoplayModeOverride: true,
-    },
-  },
-} as const;
-
-async function fetchVocabSnapshots(
-  userId: string,
-  input: StartSessionInput
-): Promise<VocabSnapshot[]> {
-  return prisma.vocabItem.findMany({
-    where: {
-      set:
-        input.scopeType === "SET"
-          ? { id: input.scopeId, userId }
-          : {
-              userId,
-              folderId: {
-                in: await (async () => {
-                  const ids = await getFolderDescendantIds(userId, input.scopeId);
-                  return input.includeSubfolders ? ids : [input.scopeId];
-                })(),
-              },
-            },
-      ...(input.mode === "due"
-        ? {
-            OR: [{ nextReview: null }, { nextReview: { lte: new Date() } }],
-          }
-        : {}),
-    },
-    select: vocabSnapshotSelect,
-    orderBy: { createdAt: "asc" },
-  });
-}
-
-async function fetchVocabSnapshotsByIds(
-  userId: string,
-  itemIds: string[]
-): Promise<VocabSnapshot[]> {
-  if (itemIds.length === 0) return [];
-
-  return prisma.vocabItem.findMany({
-    where: { id: { in: itemIds }, set: { userId } },
-    select: vocabSnapshotSelect,
-  });
-}
-
-type SessionRow = {
-  id: string;
-  scopeType: string;
-  scopeId: string;
-  includeSubfolders: boolean;
-  mode: string;
-  direction: string;
-  isLearning: boolean;
-  queueJson: Prisma.JsonValue;
-  cursor: number;
-  completedAt: Date | null;
-  createdAt: Date;
-  updatedAt: Date;
-};
-
-const sessionSelectSql = Prisma.sql`
-  SELECT
-    "id",
-    "scopeType",
-    "scopeId",
-    "includeSubfolders",
-    "mode",
-    "direction",
-    "isLearning",
-    "queueJson",
-    "cursor",
-    "completedAt",
-    "createdAt",
-    "updatedAt"
-  FROM "StudySession"
-`;
-
-async function syncSessionQueueWithDb(
-  userId: string,
-  row: SessionRow
-): Promise<PersistedStudySession> {
-  const parsed = parseSessionRow(row);
-  const itemIds = parsed.queue.map((item) => item.itemId);
-  const [dbItems, settings] = await Promise.all([
-    fetchVocabSnapshotsByIds(userId, itemIds),
-    prisma.userSettings.findUnique({ where: { userId } }),
-  ]);
-
-  const refreshedQueue = refreshSessionQueue(
-    parsed.queue,
-    dbItems,
-    settings?.defaultAutoplayMode
-  );
-
-  const queueChanged =
-    refreshedQueue.length !== parsed.queue.length ||
-    refreshedQueue.some((item, index) => {
-      const prev = parsed.queue[index];
-      return (
-        !prev ||
-        prev.itemId !== item.itemId ||
-        prev.sideAText !== item.sideAText ||
-        prev.sideBText !== item.sideBText ||
-        prev.fsrsState !== item.fsrsState ||
-        prev.nextReview !== item.nextReview ||
-        prev.stability !== item.stability ||
-        prev.difficulty !== item.difficulty ||
-        prev.elapsedDays !== item.elapsedDays ||
-        prev.scheduledDays !== item.scheduledDays ||
-        prev.reps !== item.reps ||
-        prev.lastReview !== item.lastReview ||
-        prev.sideALabel !== item.sideALabel ||
-        prev.sideBLabel !== item.sideBLabel ||
-        prev.sideALanguage !== item.sideALanguage ||
-        prev.sideBLanguage !== item.sideBLanguage ||
-        prev.learningSide !== item.learningSide ||
-        prev.autoplayMode !== item.autoplayMode
-      );
-    });
-
-  if (queueChanged) {
-    await prisma.$executeRaw(Prisma.sql`
-      UPDATE "StudySession"
-      SET
-        "queueJson" = ${JSON.stringify(refreshedQueue)}::jsonb,
-        "updatedAt" = NOW()
-      WHERE "id" = ${parsed.id} AND "userId" = ${userId}
-    `);
-  }
-
-  return {
-    ...parsed,
-    queue: refreshedQueue,
-  };
 }
 
 export async function getLatestOpenStudySession(
@@ -325,21 +46,11 @@ export async function getLatestOpenStudySession(
   const userId = await requireUser();
   await verifyScopeOwnership(userId, scopeType, scopeId);
 
-  const rows = await prisma.$queryRaw<SessionRow[]>(Prisma.sql`
-    ${sessionSelectSql}
-    WHERE "userId" = ${userId}
-      AND "scopeType" = ${scopeType}
-      AND "scopeId" = ${scopeId}
-      AND "completedAt" IS NULL
-    ORDER BY "updatedAt" DESC
-    LIMIT 1
-  `);
-
-  if (!rows.length) return null;
-  return syncSessionQueueWithDb(userId, rows[0]);
+  const row = await findLatestOpenSessionRow(userId, scopeType, scopeId);
+  if (!row) return null;
+  return syncSessionQueueWithDb(userId, row);
 }
 
-/** Resume the latest open session with vocab data refreshed from the database. */
 export async function resumeStudySession(
   scopeType: StudyScopeType,
   scopeId: string
@@ -356,27 +67,11 @@ export async function startStudySession(
   const queue = await loadCardsForSession(userId, input);
   const id = createId();
 
-  await prisma.$executeRaw(Prisma.sql`
-    INSERT INTO "StudySession" (
-      "id", "userId", "scopeType", "scopeId",
-      "includeSubfolders", "mode", "direction", "isLearning",
-      "queueJson", "cursor", "createdAt", "updatedAt"
-    )
-    VALUES (
-      ${id}, ${userId}, ${input.scopeType}, ${input.scopeId},
-      ${input.includeSubfolders}, ${input.mode}, ${input.direction}, ${input.isLearning},
-      ${JSON.stringify(queue)}::jsonb, 0, NOW(), NOW()
-    )
-  `);
+  await insertStudySession(id, userId, input, queue);
 
-  const rows = await prisma.$queryRaw<SessionRow[]>(Prisma.sql`
-    ${sessionSelectSql}
-    WHERE "id" = ${id}
-    LIMIT 1
-  `);
-
-  if (!rows.length) throw new Error("Failed to create study session");
-  return parseSessionRow(rows[0]);
+  const row = await findSessionRowById(id);
+  if (!row) throw new Error("Failed to create study session");
+  return parseSessionRow(row);
 }
 
 export async function updateSessionQueueState(
@@ -385,17 +80,7 @@ export async function updateSessionQueueState(
   completed = false
 ) {
   const userId = await requireUser();
-  await prisma.$executeRaw(Prisma.sql`
-    UPDATE "StudySession"
-    SET
-      "queueJson" = ${JSON.stringify(queueJson)}::jsonb,
-      "updatedAt" = NOW(),
-      "completedAt" = CASE
-        WHEN ${completed} THEN NOW()
-        ELSE "completedAt"
-      END
-    WHERE "id" = ${sessionId} AND "userId" = ${userId}
-  `);
+  await updateSessionQueueInDb(userId, sessionId, queueJson, completed);
 }
 
 export async function submitSessionReview(

@@ -2,9 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Trash2, X } from "lucide-react";
-import { updateVocabItem, deleteVocabItem } from "@/lib/vocab-items";
+import { updateVocabItem, deleteVocabItem } from "@/lib/vocab";
 import ConfirmDialog from "@/components/vocab/ConfirmDialog";
-import type { VocabItemDTO } from "@/lib/vocab-types";
+import type { VocabItemDTO } from "@/lib/vocab";
 
 export default function VocabItemEditSheet({
   open,

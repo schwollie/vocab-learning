@@ -14,7 +14,7 @@ import {
 import {
   formatScheduleOffset,
   ReviewScheduleSnapshot,
-} from "@/lib/review-schedule";
+} from "@/lib/study";
 
 function ChartTooltip({
   active,

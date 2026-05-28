@@ -273,11 +273,13 @@ export default function Flashcard({
         word={lexiconFace === "prompt" ? prompt : answer}
         sourceLanguage={
           lexiconFace === "prompt"
-            ? (promptTranslationLanguage ?? promptLanguage)
-            : (answerTranslationLanguage ?? answerLanguage)
+            ? promptLanguage
+            : answerLanguage
         }
         targetLanguage={
-          lexiconFace === "prompt" ? promptTranslationLanguage : answerTranslationLanguage
+          lexiconFace === "prompt"
+            ? promptTranslationLanguage
+            : answerTranslationLanguage
         }
       />
     </div>

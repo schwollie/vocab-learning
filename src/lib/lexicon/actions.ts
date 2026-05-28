@@ -1,7 +1,7 @@
 "use server";
 
 import { auth } from "@clerk/nextjs/server";
-import { getLexiconData } from "./get-lexicon";
+import { emptyLexiconResult, getLexiconData } from "./get-lexicon";
 import type { LexiconResult } from "./types";
 
 export async function fetchLexicon(
@@ -14,20 +14,12 @@ export async function fetchLexicon(
 
   const cleanedWord = word.trim();
   if (!cleanedWord) {
-    return {
-      word: "",
-      sourceLanguage,
-      examples: [],
-      definitions: [],
-      forms: [],
-      providers: [],
-    };
+    return emptyLexiconResult("", sourceLanguage, targetLanguage);
   }
 
   return getLexiconData({
     word: cleanedWord,
     sourceLanguage,
     targetLanguage,
-    maxExamples: 6,
   });
 }

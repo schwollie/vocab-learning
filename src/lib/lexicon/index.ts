@@ -1,10 +1,10 @@
 export { fetchLexicon } from "./actions";
 export { getLexiconData } from "./get-lexicon";
 export type {
-  LexiconDefinition,
-  LexiconForm,
-  LexiconProvider,
+  LexiconExample,
+  LexiconGrammar,
+  LexiconGrammarKind,
+  LexiconGrammarRow,
   LexiconQuery,
   LexiconResult,
-  LexiconSentence,
 } from "./types";

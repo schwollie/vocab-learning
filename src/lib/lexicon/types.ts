@@ -1,43 +1,36 @@
-export interface LexiconSentence {
-  id: string;
-  text: string;
-  language: string;
-  translations: Array<{
-    id: string;
-    text: string;
-    language: string;
-  }>;
-}
+export type LexiconGrammarKind = "conjugation" | "declension" | "none";
 
-export interface LexiconDefinition {
-  partOfSpeech?: string;
-  text: string;
-  tags?: string[];
-}
-
-export interface LexiconForm {
+export interface LexiconGrammarRow {
+  label: string;
   form: string;
-  tags: string[];
+}
+
+export interface LexiconGrammar {
+  kind: LexiconGrammarKind;
+  title: string;
+  rows: LexiconGrammarRow[];
+}
+
+export interface LexiconExample {
+  source: string;
+  translation: string;
 }
 
 export interface LexiconResult {
   word: string;
   sourceLanguage: string;
-  examples: LexiconSentence[];
-  definitions: LexiconDefinition[];
-  forms: LexiconForm[];
-  providers: string[];
+  targetLanguage?: string;
+  headWord?: string;
+  partOfSpeech?: string;
+  definition: string;
+  definitionTranslation: string;
+  grammar: LexiconGrammar;
+  examples: LexiconExample[];
+  provider: "gemini";
 }
 
 export interface LexiconQuery {
   word: string;
   sourceLanguage: string;
   targetLanguage?: string;
-  maxExamples?: number;
-}
-
-export interface LexiconProvider {
-  id: string;
-  supports(language: string): boolean;
-  fetch(query: LexiconQuery): Promise<Partial<LexiconResult>>;
 }

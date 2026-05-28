@@ -1,13 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { Volume2, VolumeX } from "lucide-react";
 import Flashcard from "@/components/vocab/Flashcard";
 import ReviewSchedulePanel from "@/components/study/ReviewSchedulePanel";
 import VocabItemEditSheet from "@/components/vocab/VocabItemEditSheet";
 import ReviewIntervalPopup from "@/components/vocab/ReviewIntervalPopup";
 import { formatAddedInterval, intervalMsUntil } from "@/lib/review-interval";
+import { previewRatingIntervals } from "@/lib/rating-preview";
 import {
   resumeStudySession,
   startStudySession,
@@ -59,6 +60,7 @@ export default function StudyExperience({
   const [session, setSession] = useState<PersistedStudySession | null>(null);
   const [pending, startTransition] = useTransition();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const submitLockRef = useRef(false);
 
   const [mode, setMode] = useState<StudyMode>(defaults.defaultStudyMode);
   const [direction, setDirection] = useState<StudyDirection>(
@@ -82,6 +84,11 @@ export default function StudyExperience({
   const queue = active?.queue ?? [];
 
   const chunkIndices = useMemo(() => buildActiveWindowIndices(queue), [queue]);
+
+  useEffect(() => {
+    if (chunkIndices.length === 0) return;
+    setLocalIndex((prev) => prev % chunkIndices.length);
+  }, [chunkIndices]);
 
   const currentIndex =
     chunkIndices.length > 0 ? chunkIndices[localIndex % chunkIndices.length] : -1;
@@ -118,6 +125,11 @@ export default function StudyExperience({
       answer: shouldAutoplaySide(current.autoplayMode, answerSide),
     };
   }, [autoplayEnabled, current, defaults.autoplayAudio]);
+
+  const ratingPreviews = useMemo(
+    () => (current && isLearning ? previewRatingIntervals(current) : null),
+    [current, isLearning]
+  );
 
   const advanceIndex = (indices: number[]) => {
     const poolSize = indices.length;
@@ -176,12 +188,14 @@ export default function StudyExperience({
   };
 
   const onRate = async (rating: number) => {
-    if (!active || !current || isSubmitting) return;
+    if (!active || !current || isSubmitting || submitLockRef.current) return;
+    submitLockRef.current = true;
     setIsSubmitting(true);
     try {
       const newQueue = [...queue];
       let fsrsState = current.fsrsState ?? 0;
       let nextReview = current.nextReview;
+      let fsrsPatch: Partial<typeof current> = {};
 
       if (isLearning && isDueNow(current)) {
         const result = await submitSessionReview(
@@ -192,6 +206,14 @@ export default function StudyExperience({
         if (result !== null) {
           fsrsState = result.state;
           nextReview = result.nextReview;
+          fsrsPatch = {
+            stability: result.stability,
+            difficulty: result.difficulty,
+            elapsedDays: result.elapsedDays,
+            scheduledDays: result.scheduledDays,
+            reps: result.reps,
+            lastReview: result.lastReview,
+          };
           setScheduleRefreshKey((k) => k + 1);
           if (defaults.showReviewIntervalPopup) {
             const addedMs = intervalMsUntil(result.nextReview);
@@ -205,6 +227,7 @@ export default function StudyExperience({
 
       newQueue[currentIndex] = {
         ...current,
+        ...fsrsPatch,
         correctCount: nextCorrectCount(current, rating),
         firstAttemptCompleted: true,
         fsrsState,
@@ -215,7 +238,10 @@ export default function StudyExperience({
       const isDone = newQueue.every((item) => isSessionItemComplete(item));
       advanceIndex(nextIndices);
       moveActivePool(newQueue, isDone);
+    } catch (error) {
+      console.error("Failed to submit review", error);
     } finally {
+      submitLockRef.current = false;
       setIsSubmitting(false);
     }
   };
@@ -466,6 +492,8 @@ export default function StudyExperience({
         cardIndex={completedCount}
         totalCards={queue.length}
         isLearning={isLearning}
+        cardAttemptKey={`${current.itemId}-${current.correctCount}-${current.reps ?? 0}`}
+        ratingPreviews={ratingPreviews}
         onRate={onRate}
         onNext={onBrowseNext}
         onPrevious={onPrevious}

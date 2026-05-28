@@ -148,6 +148,12 @@ async function loadCardsForSession(
       fsrsState: item.state,
       startedAsNew: item.state === State.New,
       nextReview: item.nextReview?.toISOString() ?? null,
+      stability: item.stability,
+      difficulty: item.difficulty,
+      elapsedDays: item.elapsedDays,
+      scheduledDays: item.scheduledDays,
+      reps: item.reps,
+      lastReview: item.lastReview?.toISOString() ?? null,
       correctCount: 0,
       firstAttemptCompleted: false,
     };
@@ -160,6 +166,12 @@ const vocabSnapshotSelect = {
   term: true,
   definition: true,
   state: true,
+  stability: true,
+  difficulty: true,
+  elapsedDays: true,
+  scheduledDays: true,
+  reps: true,
+  lastReview: true,
   nextReview: true,
   createdAt: true,
   set: {
@@ -275,6 +287,12 @@ async function syncSessionQueueWithDb(
         prev.sideBText !== item.sideBText ||
         prev.fsrsState !== item.fsrsState ||
         prev.nextReview !== item.nextReview ||
+        prev.stability !== item.stability ||
+        prev.difficulty !== item.difficulty ||
+        prev.elapsedDays !== item.elapsedDays ||
+        prev.scheduledDays !== item.scheduledDays ||
+        prev.reps !== item.reps ||
+        prev.lastReview !== item.lastReview ||
         prev.sideALabel !== item.sideALabel ||
         prev.sideBLabel !== item.sideBLabel ||
         prev.sideALanguage !== item.sideALanguage ||
@@ -384,7 +402,16 @@ export async function submitSessionReview(
   sessionId: string,
   itemId: string,
   rating: number
-): Promise<{ state: number; nextReview: string } | null> {
+): Promise<{
+  state: number;
+  nextReview: string;
+  stability: number;
+  difficulty: number;
+  elapsedDays: number;
+  scheduledDays: number;
+  reps: number;
+  lastReview: string;
+} | null> {
   const userId = await requireUser();
   if (!VALID_RATINGS.has(rating)) throw new Error("Invalid rating");
 
@@ -423,5 +450,24 @@ export async function submitSessionReview(
     updatedItem.nextReview instanceof Date
       ? updatedItem.nextReview.toISOString()
       : item.nextReview?.toISOString() ?? new Date().toISOString();
-  return { state, nextReview };
+  const lastReview =
+    updatedItem.lastReview instanceof Date
+      ? updatedItem.lastReview.toISOString()
+      : nextReview;
+  return {
+    state,
+    nextReview,
+    stability:
+      typeof updatedItem.stability === "number" ? updatedItem.stability : item.stability,
+    difficulty:
+      typeof updatedItem.difficulty === "number" ? updatedItem.difficulty : item.difficulty,
+    elapsedDays:
+      typeof updatedItem.elapsedDays === "number" ? updatedItem.elapsedDays : item.elapsedDays,
+    scheduledDays:
+      typeof updatedItem.scheduledDays === "number"
+        ? updatedItem.scheduledDays
+        : item.scheduledDays,
+    reps: typeof updatedItem.reps === "number" ? updatedItem.reps : item.reps + 1,
+    lastReview,
+  };
 }

@@ -10,6 +10,12 @@ export type VocabSnapshot = {
   term: string;
   definition: string;
   state: number;
+  stability: number;
+  difficulty: number;
+  elapsedDays: number;
+  scheduledDays: number;
+  reps: number;
+  lastReview: Date | null;
   nextReview: Date | null;
   set: {
     sideALabel: string;
@@ -54,6 +60,12 @@ export function refreshSessionQueue(
         autoplayMode,
         fsrsState: db.state,
         nextReview: db.nextReview?.toISOString() ?? null,
+        stability: db.stability,
+        difficulty: db.difficulty,
+        elapsedDays: db.elapsedDays,
+        scheduledDays: db.scheduledDays,
+        reps: db.reps,
+        lastReview: db.lastReview?.toISOString() ?? null,
       },
     ];
   });

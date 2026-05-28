@@ -46,6 +46,20 @@ After each deploy, hard-refresh the browser (Ctrl+Shift+R) to avoid stale Server
 
 Postgres is available at `127.0.0.1:5432` with credentials from `.env`.
 
+## Project layout
+
+```
+public/icon.png     App icon (favicon, header, landing)
+src/app/            Next.js routes and UI
+src/components/     Shared React components
+src/lib/            Business logic (FSRS, study, vocab)
+prisma/             Database schema and migrations
+deploy/             Docker/Caddy production scripts
+backup/             Local DB backup notes (data not in git)
+```
+
+`AGENTS.md` is kept for Cursor/AI editor hints about this Next.js version.
+
 ## Auth behavior
 
 - Protected routes redirect to `/sign-in?returnTo=...` when logged out

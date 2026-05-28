@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { UserButton } from "@clerk/nextjs";
 import { auth } from "@clerk/nextjs/server";
 
@@ -9,7 +10,15 @@ export default async function AppHeader() {
     <header className="border-b border-gray-200 dark:border-zinc-800 bg-white/90 dark:bg-zinc-950/90 backdrop-blur">
       <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <Link href="/" className="font-semibold tracking-tight">
+          <Link href="/" className="flex items-center gap-2 font-semibold tracking-tight">
+            <Image
+              src="/icon.png"
+              alt=""
+              width={28}
+              height={28}
+              className="rounded-md"
+              priority
+            />
             Vocab Learning
           </Link>
           {userId && (

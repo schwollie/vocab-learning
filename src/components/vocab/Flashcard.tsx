@@ -4,6 +4,7 @@ import { ReactNode, useEffect, useState } from "react";
 import { Pencil, RotateCcw } from "lucide-react";
 import AudioPlayer from "./AudioPlayer";
 import { getFsrsStateDisplay } from "@/lib/fsrs-state";
+import { RATING_HINTS } from "@/lib/rating-preview";
 
 interface FlashcardProps {
   prompt: string;
@@ -17,6 +18,9 @@ interface FlashcardProps {
   cardIndex: number;
   totalCards: number;
   isLearning: boolean;
+  /** Changes when the same item returns for another session pass — resets flip state. */
+  cardAttemptKey?: string;
+  ratingPreviews?: Record<number, string> | null;
   onRate: (rating: number) => void | Promise<void>;
   onNext: () => void;
   onPrevious: () => void;
@@ -46,6 +50,8 @@ export default function Flashcard({
   cardIndex,
   totalCards,
   isLearning,
+  cardAttemptKey,
+  ratingPreviews,
   onRate,
   onNext,
   onPrevious,
@@ -58,12 +64,20 @@ export default function Flashcard({
 
   useEffect(() => {
     setFlipped(false);
-  }, [prompt, answer]);
+  }, [prompt, answer, cardAttemptKey]);
+
+  useEffect(() => {
+    if (disableActions) setFlipped(false);
+  }, [disableActions]);
 
   const handleRate = async (rating: number) => {
     if (disableActions) return;
     setFlipped(false);
-    await onRate(rating);
+    try {
+      await onRate(rating);
+    } catch {
+      setFlipped(false);
+    }
   };
 
   const cardControls = (
@@ -104,8 +118,8 @@ export default function Flashcard({
       </p>
 
       <div
-        className="relative min-h-[320px] cursor-pointer [perspective:1200px]"
-        onClick={() => !flipped && setFlipped(true)}
+        className="relative min-h-[320px] cursor-pointer overflow-hidden rounded-2xl [perspective:1200px]"
+        onClick={() => !flipped && !disableActions && setFlipped(true)}
       >
         {cardOverlay}
         <div
@@ -158,7 +172,7 @@ export default function Flashcard({
         </div>
       </div>
 
-      <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+      <div className="relative z-10 mt-6 flex flex-wrap items-center justify-between gap-3">
         <button
           type="button"
           onClick={onPrevious}
@@ -170,27 +184,35 @@ export default function Flashcard({
 
         {flipped ? (
           isLearning ? (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 flex-1">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 flex-1">
               <RatingButton
                 label="Again"
+                hint={RATING_HINTS[1]}
+                interval={ratingPreviews?.[1]}
                 style={ratingStyles.red}
                 onClick={() => handleRate(1)}
                 disabled={disableActions}
               />
               <RatingButton
                 label="Hard"
+                hint={RATING_HINTS[2]}
+                interval={ratingPreviews?.[2]}
                 style={ratingStyles.orange}
                 onClick={() => handleRate(2)}
                 disabled={disableActions}
               />
               <RatingButton
                 label="Good"
+                hint={RATING_HINTS[3]}
+                interval={ratingPreviews?.[3]}
                 style={ratingStyles.green}
                 onClick={() => handleRate(3)}
                 disabled={disableActions}
               />
               <RatingButton
                 label="Easy"
+                hint={RATING_HINTS[4]}
+                interval={ratingPreviews?.[4]}
                 style={ratingStyles.blue}
                 onClick={() => handleRate(4)}
                 disabled={disableActions}
@@ -237,11 +259,15 @@ function FsrsStateBadge({
 
 function RatingButton({
   label,
+  hint,
+  interval,
   style,
   onClick,
   disabled,
 }: {
   label: string;
+  hint: string;
+  interval?: string;
   style: string;
   onClick: () => void;
   disabled?: boolean;
@@ -249,14 +275,20 @@ function RatingButton({
   return (
     <button
       type="button"
+      title={hint}
       onClick={(e) => {
         e.stopPropagation();
         onClick();
       }}
       disabled={disabled}
-      className={`py-3 font-bold rounded-xl transition disabled:opacity-50 ${style}`}
+      className={`flex flex-col items-center justify-center gap-0.5 min-h-[3.25rem] py-2 px-1 font-bold rounded-xl transition disabled:opacity-50 ${style}`}
     >
-      {label}
+      <span>{label}</span>
+      {interval ? (
+        <span className="text-[10px] sm:text-[11px] font-medium opacity-70 tabular-nums leading-none">
+          {interval}
+        </span>
+      ) : null}
     </button>
   );
 }

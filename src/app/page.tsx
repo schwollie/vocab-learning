@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { sanitizeReturnTo } from "@/lib/return-to";
 
 export default async function Home({
@@ -18,6 +19,14 @@ export default async function Home({
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 dark:bg-zinc-950 p-4">
       <div className="max-w-2xl w-full text-center space-y-8">
+        <Image
+          src="/icon.png"
+          alt="Vocab Learning"
+          width={72}
+          height={72}
+          className="mx-auto rounded-2xl shadow-sm"
+          priority
+        />
         <h1 className="text-4xl font-extrabold tracking-tight">
           Vocabulary Spaced Repetition
         </h1>

@@ -1,8 +1,45 @@
 import { VocabItem, Prisma } from "@prisma/client";
-import { FSRS, Rating, Card } from "fsrs.js";
+import { Rating, Card, State } from "fsrs.js";
+import { fsrsScheduler } from "@/lib/fsrs-scheduler";
 
-// Initialize FSRS
-export const fsrsScheduler = new FSRS();
+/** First-time (New) card: Good graduates to Review in 1 day. */
+export const NEW_CARD_GOOD_DAYS = 1;
+/** First-time (New) card: Easy graduates to Review in 2 days. */
+export const NEW_CARD_EASY_DAYS = 2;
+
+function addDays(from: Date, days: number): Date {
+  return new Date(from.getTime() + days * 24 * 60 * 60 * 1000);
+}
+
+/** FSRS uses minute steps for New+Good; we use +1d / +2d on first sight instead. */
+export function applyNewCardScheduleOverride(
+  priorState: number,
+  rating: Rating,
+  card: Card,
+  now: Date
+): Card {
+  if (priorState !== State.New) return card;
+
+  if (rating === Rating.Good) {
+    return {
+      ...card,
+      state: State.Review,
+      scheduled_days: NEW_CARD_GOOD_DAYS,
+      due: addDays(now, NEW_CARD_GOOD_DAYS),
+    };
+  }
+
+  if (rating === Rating.Easy) {
+    return {
+      ...card,
+      state: State.Review,
+      scheduled_days: NEW_CARD_EASY_DAYS,
+      due: addDays(now, NEW_CARD_EASY_DAYS),
+    };
+  }
+
+  return card;
+}
 
 // Mapper from our Prisma VocabItem to FSRS Card
 export function vocabItemToFsrsCard(item: VocabItem): Card {
@@ -31,9 +68,10 @@ export function processReview(
   
   // schedulingCards is a Record<Rating, SchedulingCard>. We pick the one corresponding to the user's rating
   const schedulingInfo = schedulingCards[rating];
-  const newCard = schedulingInfo.card;
-  const reviewLog = schedulingInfo.review_log;
-  
+  let newCard = schedulingInfo.card;
+
+  newCard = applyNewCardScheduleOverride(item.state, rating, newCard, now);
+
   return {
     updatedItem: {
       stability: newCard.stability,
@@ -47,7 +85,7 @@ export function processReview(
     },
     newLog: {
       rating,
-      state: reviewLog.state,
+      state: newCard.state,
       due: newCard.due,
       stability: newCard.stability, // use newCard's stability since reviewLog in some versions doesnt duplicate it
       difficulty: newCard.difficulty,

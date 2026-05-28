@@ -17,6 +17,10 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Vocab Learning",
   description: "Spaced repetition vocabulary trainer",
+  icons: {
+    icon: [{ url: "/icon.png", type: "image/png" }],
+    apple: [{ url: "/icon.png", type: "image/png" }],
+  },
 };
 
 export default function RootLayout({

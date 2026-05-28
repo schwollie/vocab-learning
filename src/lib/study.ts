@@ -27,6 +27,12 @@ export interface StudyQueueItem {
   startedAsNew: boolean;
   /** ISO timestamp from FSRS after each review; null = due now. */
   nextReview: string | null;
+  stability?: number;
+  difficulty?: number;
+  elapsedDays?: number;
+  scheduledDays?: number;
+  reps?: number;
+  lastReview?: string | null;
   correctCount: number;
   firstAttemptCompleted: boolean;
 }
